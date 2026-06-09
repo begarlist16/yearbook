@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Begarlist 16 - Galeri Foto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- PAGE LOADER -->
+  <div class="page-loader" id="pageLoader">
+    <div class="loader-ring"></div>
+    <span class="loader-text">Memuat Galeri…</span>
+  </div>
+
+  <!-- NAVBAR ROW 1: home · search · dark mode -->
+  <header class="header">
+    <div class="header-inner header-row1">
+      <a href="https://begarlist16.github.io" class="home-btn" title="Kembali ke Homepage">
+        <span class="home-emoji">🏠</span>
+      </a>
+
+      <!-- Search bar -->
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Cari foto…"
+          autocomplete="off"
+          oninput="handleSearch(this.value)"
+        />
+        <button class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Hapus pencarian">✕</button>
+      </div>
+
+      <!-- Dark mode toggle -->
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="themeIcon">☀</span>
+      </button>
+    </div>
+
+    <!-- NAVBAR ROW 2: horizontal scrollable category strip -->
+    <div class="category-row" id="categoryRow">
+      <button class="cat-nav-btn cat-nav-left" id="catNavLeft" onclick="scrollCatNav(-1)" aria-label="Scroll kiri">‹</button>
+      <div class="category-inner" id="categoryInner">
+        <button class="cat-btn" data-cat="IPS 1"       onclick="filterCategory('IPS 1',       this)">IPS 1</button>
+        <button class="cat-btn" data-cat="IPS 2"       onclick="filterCategory('IPS 2',       this)">IPS 2</button>
+        <button class="cat-btn" data-cat="IPS 3"       onclick="filterCategory('IPS 3',       this)">IPS 3</button>
+        <button class="cat-btn" data-cat="IPS 4"       onclick="filterCategory('IPS 4',       this)">IPS 4</button>
+        <button class="cat-btn" data-cat="IPA 1"       onclick="filterCategory('IPA 1',       this)">IPA 1</button>
+        <button class="cat-btn" data-cat="IPA 2"       onclick="filterCategory('IPA 2',       this)">IPA 2</button>
+        <button class="cat-btn" data-cat="IPA 3"       onclick="filterCategory('IPA 3',       this)">IPA 3</button>
+        <button class="cat-btn" data-cat="IPA 4"       onclick="filterCategory('IPA 4',       this)">IPA 4</button>
+        <button class="cat-btn" data-cat="IPA 5"       onclick="filterCategory('IPA 5',       this)">IPA 5</button>
+        <button class="cat-btn" data-cat="BTS"         onclick="filterCategory('BTS',         this)">BTS</button>
+        <button class="cat-btn" data-cat="Guru-Staff"  onclick="filterCategory('Guru-Staff',  this)">Guru-Staff</button>
+      </div>
+      <button class="cat-nav-btn cat-nav-right" id="catNavRight" onclick="scrollCatNav(1)" aria-label="Scroll kanan">›</button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
+
+    <!-- Carousel: shown when no category is selected -->
+    <div class="carousel-section" id="carouselSection">
+      <div class="carousel-wrap" id="carouselWrap">
+        <div class="carousel-track" id="carouselTrack"></div>
+        <div class="carousel-feather carousel-feather-left"></div>
+        <div class="carousel-feather carousel-feather-right"></div>
+      </div>
+      <p class="carousel-hint">Pilih Kategori Untuk Melihat Daftar Foto</p>
+    </div>
+
+    <div class="section-header" id="sectionHeader" style="display:none">
+      <h2 class="section-title" id="sectionTitle"></h2>
+      <span class="section-count" id="sectionCount"></span>
+    </div>
+
+    <!-- Photo Grid -->
+    <div class="photo-grid" id="photoGrid"></div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">◎</div>
+      <p class="empty-title">Tidak ada foto ditemukan</p>
+      <p class="empty-sub">Coba kata kunci lain atau pilih kategori berbeda.</p>
+    </div>
+
+  </main>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightboxOnBg(event)">
+    <button class="lb-close" onclick="closeLightbox()" aria-label="Tutup">✕</button>
+    <button class="lb-nav lb-prev" id="lbPrev" onclick="lightboxNav(-1)" aria-label="Sebelumnya">‹</button>
+    <button class="lb-nav lb-next" id="lbNext" onclick="lightboxNav(1)"  aria-label="Berikutnya">›</button>
+
+    <div class="lb-body">
+      <div class="lb-content">
+        <div class="lb-img-loader" id="lbImgLoader"></div>
+        <img id="lbImg" src="" alt="" />
+      </div>
+      <div class="lb-caption" id="lbCaption"></div>
+      <div class="lb-strip-wrap">
+        <div class="lb-strip" id="lbStrip"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>© 2025 Begarlist 16 · Dibuat dengan ♥ · Galeri Foto Kelas</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
