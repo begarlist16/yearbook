@@ -5,15 +5,15 @@
 
 // Category → JSON filename map (matches data-cat values in index.html)
 const CATEGORY_FILES = {
-  'IPS 1':      'data-ips1.json',
-  'IPS 2':      'data-ips2.json',
-  'IPS 3':      'data-ips3.json',
-  'IPS 4':      'data-ips4.json',
-  'IPA 1':      'data-ipa1.json',
-  'IPA 2':      'data-ipa2.json',
-  'IPA 3':      'data-ipa3.json',
-  'IPA 4':      'data-ipa4.json',
-  'IPA 5':      'data-ipa5.json',
+  'IPS 1':      'data-ips-1.json',
+  'IPS 2':      'data-ips-2.json',
+  'IPS 3':      'data-ips-3.json',
+  'IPS 4':      'data-ips-4.json',
+  'IPA 1':      'data-ipa-1.json',
+  'IPA 2':      'data-ipa-2.json',
+  'IPA 3':      'data-ipa-3.json',
+  'IPA 4':      'data-ipa-4.json',
+  'IPA 5':      'data-ipa-5.json',
   'BTS':        'data-bts.json',
   'Guru-Staff': 'data-guru-staff.json',
 };
