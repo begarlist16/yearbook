@@ -1,21 +1,49 @@
 // ============================================================
 //  Begarlist 16 — Photo Gallery App Logic
+//  v2: per-category JSON fetching + SW caching + smart carousel
 // ============================================================
+
+// Category → JSON filename map (matches data-cat values in index.html)
+const CATEGORY_FILES = {
+  'IPS 1':      'data-ips1.json',
+  'IPS 2':      'data-ips2.json',
+  'IPS 3':      'data-ips3.json',
+  'IPS 4':      'data-ips4.json',
+  'IPA 1':      'data-ipa1.json',
+  'IPA 2':      'data-ipa2.json',
+  'IPA 3':      'data-ipa3.json',
+  'IPA 4':      'data-ipa4.json',
+  'IPA 5':      'data-ipa5.json',
+  'BTS':        'data-bts.json',
+  'Guru-Staff': 'data-guru-staff.json',
+};
+
+const CATEGORIES = Object.keys(CATEGORY_FILES);
+
+// In-memory cache: category → photo array
+const photoCache = {};
 
 let currentCategory = null;
 let currentSearch   = '';
 let lightboxIndex   = 0;
 let lightboxPhotos  = [];
 
-let carouselInterval  = null;
-let carouselPos       = 0;
-let carouselPaused    = false;
-let carouselPhotos    = [];   // the 12 random photos used in carousel
+let carouselInterval = null;
+let carouselPos      = 0;
+let carouselPaused   = false;
+let carouselPhotos   = [];   // 1 photo per category for homepage
 
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('bg16-theme') || 'dark';
   setTheme(saved);
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('SW registration failed:', err);
+    });
+  }
 
   initCategoryNav();
   initCarousel();
@@ -45,23 +73,54 @@ function setTheme(theme) {
   document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀' : '◑';
 }
 
+// ── DATA FETCHING ─────────────────────────────────────────────
+async function fetchCategory(cat) {
+  // Return from memory cache if already loaded
+  if (photoCache[cat]) return photoCache[cat];
+
+  const file = CATEGORY_FILES[cat];
+  if (!file) return [];
+
+  try {
+    const res = await fetch(file);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    // Support both array format and { photos: [] } format
+    const photos = Array.isArray(data) ? data : (data.photos || []);
+    photoCache[cat] = photos;
+    return photos;
+  } catch (err) {
+    console.error(`Failed to load ${file}:`, err);
+    return [];
+  }
+}
+
+// Fetch one random photo per category for the homepage carousel
+async function fetchCarouselPhotos() {
+  const promises = CATEGORIES.map(async (cat) => {
+    const photos = await fetchCategory(cat);
+    if (photos.length === 0) return null;
+    return photos[Math.floor(Math.random() * photos.length)];
+  });
+  const results = await Promise.all(promises);
+  return results.filter(Boolean);
+}
+
 // ── CATEGORY NAV (arrows + drag + wheel) ─────────────────────
 function initCategoryNav() {
   const inner = document.getElementById('categoryInner');
   if (!inner) return;
 
-  // ── Arrow buttons ──
   updateCatNavBtns();
   inner.addEventListener('scroll', updateCatNavBtns);
 
-  // ── Mouse drag ──
-  let isDragging = false;
-  let dragStartX = 0;
+  let isDragging    = false;
+  let dragStartX    = 0;
   let dragScrollLeft = 0;
 
   inner.addEventListener('mousedown', (e) => {
-    isDragging  = true;
-    dragStartX  = e.pageX - inner.offsetLeft;
+    isDragging     = true;
+    dragStartX     = e.pageX - inner.offsetLeft;
     dragScrollLeft = inner.scrollLeft;
     inner.classList.add('dragging');
   });
@@ -80,7 +139,6 @@ function initCategoryNav() {
     inner.classList.remove('dragging');
   });
 
-  // ── Wheel → horizontal scroll ──
   inner.addEventListener('wheel', (e) => {
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       e.preventDefault();
@@ -111,17 +169,21 @@ function updateCatNavBtns() {
 }
 
 // ── SEARCH ────────────────────────────────────────────────────
-function handleSearch(val) {
+async function handleSearch(val) {
   currentSearch = val.trim().toLowerCase();
   const clearBtn = document.getElementById('searchClear');
   clearBtn.style.display = currentSearch ? 'flex' : 'none';
 
   if (currentSearch) {
     showGrid();
-    const filtered = PHOTOS.filter(p =>
+    showGridLoader();
+
+    // Search across all categories (fetch any not yet loaded)
+    const allPhotos = await fetchAllCategories();
+    const filtered  = allPhotos.filter(p =>
       p.title.toLowerCase().includes(currentSearch) ||
       p.category.toLowerCase().includes(currentSearch) ||
-      p.description.toLowerCase().includes(currentSearch)
+      (p.description || '').toLowerCase().includes(currentSearch)
     );
     document.getElementById('sectionTitle').textContent = `Hasil: "${val.trim()}"`;
     renderPhotos(filtered);
@@ -133,6 +195,11 @@ function handleSearch(val) {
       showCarousel();
     }
   }
+}
+
+async function fetchAllCategories() {
+  const all = await Promise.all(CATEGORIES.map(fetchCategory));
+  return all.flat();
 }
 
 function clearSearch() {
@@ -155,18 +222,32 @@ function filterCategory(cat, btn) {
   applyCategory(cat);
 }
 
-function applyCategory(cat) {
+async function applyCategory(cat) {
   showGrid();
+  showGridLoader();
   document.getElementById('sectionTitle').textContent = cat;
-  const filtered = PHOTOS.filter(p => p.category === cat);
-  renderPhotos(filtered);
-  updateCount(filtered.length);
+
+  const photos = await fetchCategory(cat);
+  renderPhotos(photos);
+  updateCount(photos.length);
+}
+
+// Inline loading indicator while fetching
+function showGridLoader() {
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = '';
+  const loader = document.createElement('div');
+  loader.id = 'gridLoader';
+  loader.className = 'grid-loader';
+  loader.innerHTML = '<div class="loader-ring"></div>';
+  grid.appendChild(loader);
+  document.getElementById('emptyState').style.display = 'none';
 }
 
 // ── VIEW SWITCHING ────────────────────────────────────────────
 function showCarousel() {
   document.getElementById('carouselSection').style.display = '';
-  document.getElementById('sectionHeader').style.display = 'none';
+  document.getElementById('sectionHeader').style.display   = 'none';
   document.getElementById('photoGrid').innerHTML = '';
   document.getElementById('emptyState').style.display = 'none';
   startCarousel();
@@ -174,25 +255,26 @@ function showCarousel() {
 
 function showGrid() {
   document.getElementById('carouselSection').style.display = 'none';
-  document.getElementById('sectionHeader').style.display = 'flex';
+  document.getElementById('sectionHeader').style.display   = 'flex';
   stopCarousel();
 }
 
 // ── CAROUSEL ──────────────────────────────────────────────────
-function initCarousel() {
-  carouselPhotos = [...PHOTOS].sort(() => Math.random() - 0.5).slice(0, 12);
+async function initCarousel() {
+  // Fetch 1 photo per category
+  carouselPhotos = await fetchCarouselPhotos();
 
   const track = document.getElementById('carouselTrack');
   track.innerHTML = '';
 
-  // Duplicate for seamless loop; store real index on each element
+  // Duplicate for seamless loop
   const doubled = [...carouselPhotos, ...carouselPhotos];
   doubled.forEach((p, i) => {
     const realIdx = i % carouselPhotos.length;
-    const el = document.createElement('div');
-    el.className = 'carousel-item';
+    const el      = document.createElement('div');
+    el.className  = 'carousel-item';
     el.dataset.realIdx = realIdx;
-    el.innerHTML = `<img src="${escHtml(thumbSrc(p.src))}" alt="${escHtml(p.title)}" loading="lazy" />`;
+    el.innerHTML  = `<img src="${escHtml(thumbSrc(p.src))}" alt="${escHtml(p.title)}" loading="lazy" />`;
 
     el.addEventListener('click', () => {
       lightboxPhotos = carouselPhotos;
@@ -204,7 +286,7 @@ function initCarousel() {
 
   startCarousel();
 
-  track.addEventListener('mouseenter', () => { carouselPaused = true; });
+  track.addEventListener('mouseenter', () => { carouselPaused = true;  });
   track.addEventListener('mouseleave', () => { carouselPaused = false; });
 }
 
@@ -212,8 +294,8 @@ function startCarousel() {
   stopCarousel();
   carouselPos = 0;
   const track = document.getElementById('carouselTrack');
-  if (!track) return;
-  track.style.transform = `translateX(0px)`;
+  if (!track || !track.children.length) return;
+  track.style.transform = 'translateX(0px)';
 
   carouselInterval = setInterval(() => {
     if (carouselPaused) return;
@@ -277,7 +359,6 @@ function renderPhotos(photos) {
     return;
   }
   empty.style.display = 'none';
-
   lightboxPhotos = photos;
 
   photos.forEach((p, i) => {
@@ -286,7 +367,6 @@ function renderPhotos(photos) {
     card._staggerDelay = Math.min(i, 11) * 60;
 
     const thumb = thumbSrc(p.src);
-
     card.innerHTML = `
       <div class="photo-wrap">
         <div class="photo-skeleton"></div>
@@ -328,8 +408,8 @@ function buildStrip() {
     thumb.dataset.index = i;
 
     const img = document.createElement('img');
-    img.src = thumbSrc(p.src);
-    img.alt = p.title;
+    img.src   = thumbSrc(p.src);
+    img.alt   = p.title;
     img.loading = 'lazy';
 
     thumb.appendChild(img);
@@ -343,7 +423,7 @@ function buildStrip() {
 }
 
 function syncStrip(index) {
-  const strip = document.getElementById('lbStrip');
+  const strip  = document.getElementById('lbStrip');
   const thumbs = strip.querySelectorAll('.lb-thumb');
   thumbs.forEach((t, i) => t.classList.toggle('active', i === index));
 
@@ -365,8 +445,7 @@ function loadLightboxPhoto(index) {
   loader.style.display = 'block';
   caption.textContent  = '';
 
-  const full = fullSrc(photo.src);
-
+  const full    = fullSrc(photo.src);
   const tempImg = new Image();
   tempImg.onload = () => {
     img.src = full;
@@ -429,10 +508,9 @@ function updateCount(n) {
 }
 
 function escHtml(str) {
-  return str
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
